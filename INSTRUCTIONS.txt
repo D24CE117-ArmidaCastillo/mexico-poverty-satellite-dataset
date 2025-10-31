@@ -1,0 +1,178 @@
+EXPORTACIÓN CON GEE — INSTRUCCIONES DE USO
+
+Archivo principal: exportacion_municipiosmx.py. 
+
+exportacion_municipiosmx
+
+Requisitos rápidos
+
+Cuenta de Google con acceso a Google Earth Engine (GEE) y Google Drive.
+
+Python 3.8+.
+
+Conexión a Internet.
+
+Espacio en Google Drive suficiente para las exportaciones (las imágenes se guardan en Drive).
+
+Permisos para usar el proyecto GEE (si usas un PROJECT_ID distinto, verifica alcance).
+
+Instalación (entorno local)
+
+Clona el repo o coloca exportacion_municipiosmx.py en una carpeta.
+
+Crea y activa un virtualenv (recomendado):
+
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# macOS / Linux
+source venv/bin/activate
+
+
+Instala dependencias:
+
+pip install earthengine-api tqdm tenacity
+
+Autenticación GEE
+
+Hay dos formas comunes:
+
+A) Cuenta de usuario (más simple)
+
+Ejecuta:
+
+earthengine authenticate
+
+
+Abre el enlace que te da, permite acceso con tu cuenta Google y copia el código.
+
+Asegúrate de aceptar también acceso a Google Drive cuando te lo solicite (necesario para Export to Drive).
+
+B) Service account (server / automatización)
+
+Crea service account en Google Cloud y descarga JSON key.
+
+Exporta variable de entorno:
+
+export GOOGLE_APPLICATION_CREDENTIALS="/ruta/a/tu/key.json"
+
+
+Asegúrate que el service account tenga permisos en el proyecto GEE y acceso a Drive si corresponde.
+
+Configuración del script
+
+Revisa y actualiza las constantes al inicio del script si hace falta:
+
+PROJECT_ID → ID del proyecto GCP / GEE que usarás.
+
+ASSET_MUNICIPIOS → asset en Earth Engine con los municipios (projects/.../assets/Mexico por defecto).
+
+Intervalos FECHA_INICIO y FECHA_FIN si quieres otro periodo.
+
+DRIVE_ROOT y DRIVE_COUNTRY definen la estructura en Drive (por defecto M-Dataset/M-Mexico).
+
+Estructura esperada en Google Drive (el script crea/usa estas carpetas):
+
+M-Dataset/
+└── M-Mexico/
+    └── [NombreEstado]/
+        ├── [NombreEstado]_Estadisticas_2020.csv
+        └── M-[CodMun]/
+            ├── [CodMun]_NDVI_2020.tif
+            ├── [CodMun]_LandCover_2020.tif
+            └── ...
+
+Archivos de caché y logs
+
+El script genera una carpeta cache/ en el directorio donde se ejecuta con:
+
+tareas_completadas_municipios.json — registro de tareas finalizadas.
+
+tareas_activas_municipios.json — tasks activas en GEE.
+
+metricas_municipios.json — métricas de ejecución.
+
+exportacion_municipios_YYYYMMDD_HHMMSS.log — log completo.
+
+Ejecución (recomendado: primero en modo prueba)
+
+Dry-run (simula sin enviar tareas):
+
+python exportacion_municipiosmx.py --estado AGS --dry-run
+
+
+Revisa que el script genera la lista de tareas esperadas y la estructura de carpetas.
+
+Ejecutar un estado:
+
+python exportacion_municipiosmx.py --estado AGS
+
+
+Procesar todos los estados (producción) — revisa --max-concurrent:
+
+python exportacion_municipiosmx.py --all --max-concurrent 150
+
+
+Modo verbose (más info en consola):
+
+python exportacion_municipiosmx.py --estado AGS --verbose
+
+Qué hace cada opción
+
+--estado <COD> : procesa un estado (ej: AGS, JAL, CDMX).
+
+--all : procesa todos los estados listados en ESTADOS_INFO.
+
+--dry-run : no inicia task.start() — solo muestra qué se enviaría.
+
+--max-concurrent N : limite de tareas simultáneas en GEE (ajusta según cuota).
+
+--verbose : salida de consola en nivel DEBUG.
+
+Monitoreo de tareas en GEE
+
+Panel de tareas: https://code.earthengine.google.com/tasks
+
+El script también consulta periódicamente ee.data.getTaskList() y actualiza cache/tareas_activas_municipios.json.
+
+Problemas comunes y soluciones
+
+"Folder not found" al exportar: asegúrate de que la carpeta destino exista en Drive. Puedes crear manualmente M-Dataset/M-Mexico/[NombreEstado] con tu cuenta de Drive o ajustar nombres en el script.
+
+Quota exceeded / Too many concurrent tasks: reduce --max-concurrent, espera y reintenta. El script aplica backoff, pero ojo con límites de cuenta.
+
+Error inicializando GEE: ejecuta earthengine authenticate y revisa que PROJECT_ID sea correcto.
+
+Permisos a Drive: si usas service account, dale acceso a Drive o usa cuenta de usuario con OAuth (más simple).
+
+Archivos muy grandes: las exportaciones van a Drive, no a GitHub. GitHub no es un buen lugar para almacenar las GeoTIFF resultantes.
+
+Buenas prácticas para el repo en GitHub
+
+No subir las GeoTIFF grandes al repo. Mantén solo:
+
+El script exportacion_municipiosmx.py.
+
+INSTRUCTIONS.txt (este archivo).
+
+README.md con descripción y ejemplos de uso.
+
+LICENSE (MIT).
+
+Si quieres versionar archivos grandes, usa Git LFS o deja los datos en Drive/Cloud Storage y documenta cómo descargarlos.
+
+Añade un DATA_STRUCTURE.md explicando la nomenclatura M-[CodMun] y columnas del CSV de estadísticas.
+
+Resumen rápido (copiable)
+
+Instala dependencias: pip install earthengine-api tqdm tenacity
+
+Autentica: earthengine authenticate (acepta Drive)
+
+Prueba: python exportacion_municipiosmx.py --estado AGS --dry-run
+
+Ejecuta: python exportacion_municipiosmx.py --estado AGS
+
+Monitorea: https://code.earthengine.google.com/tasks
+
+Revisa cache/ y LOG para detalles.
